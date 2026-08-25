@@ -228,8 +228,26 @@ def obter_membros():
     return df
 
 # ==========================================
-# GERADORES DE PDF 
+# GERADORES DE PDF CORRIGIDOS (BLINDAGEM CONTRA CORRUPÇÃO)
 # ==========================================
+def sanitizar_texto(texto):
+    if texto is None:
+        return ""
+    txt = str(texto)
+    # Substitui caracteres problemáticos comuns no Windows/Wow
+    txt = txt.replace("’", "'").replace("`", "'").replace("º", "o").replace("ª", "a")
+    return txt.encode("latin-1", "replace").decode("latin-1")
+
+def pdf_para_bytes(pdf):
+    # FPDF2 nativo para bytes
+    try:
+        return bytes(pdf.output())
+    except Exception:
+        out = pdf.output()
+        if isinstance(out, (bytes, bytearray)):
+            return bytes(out)
+        return str(out).encode("latin-1", "replace")
+
 class PDFCore(FPDF):
     def header(self):
         self.set_fill_color(22, 27, 34)
@@ -237,8 +255,10 @@ class PDFCore(FPDF):
         self.set_draw_color(212, 175, 55)
         self.set_line_width(1)
         self.rect(8, 8, 194, 281)
-        if os.path.exists("logo_guilda.jpg"): self.image("logo_guilda.jpg", x=90, y=12, w=30)
-        elif os.path.exists("logo_guilda.png"): self.image("logo_guilda.png", x=90, y=12, w=30)
+        if os.path.exists("logo_guilda.jpg"):
+            self.image("logo_guilda.jpg", x=90, y=12, w=30)
+        elif os.path.exists("logo_guilda.png"):
+            self.image("logo_guilda.png", x=90, y=12, w=30)
 
     def footer(self):
         self.set_y(-18)
@@ -246,40 +266,31 @@ class PDFCore(FPDF):
         self.set_text_color(150, 150, 150)
         self.cell(0, 10, "Core Renegados - Sistema Oficial de Gestao", 0, 0, "C")
 
-def pdf_para_bytes(pdf):
-    try:
-        out = pdf.output()
-        if isinstance(out, (bytes, bytearray)):
-            return bytes(out)
-        elif isinstance(out, str):
-            return out.encode('latin-1')
-        return bytes(pdf.output(dest='S'), 'latin1')
-    except Exception:
-        return bytes(pdf.output())
-
 def gerar_pdf_geral(nome_raide, data_raide, df_resultados):
     pdf = FPDF(orientation="L", unit="mm", format="A4")
     pdf.add_page()
     
-    # --- CABEÇALHO ESCURO (Estilo Dashboard) ---
+    nome_raide_limpo = sanitizar_texto(nome_raide)
+    data_raide_limpa = sanitizar_texto(data_raide)
+    
+    # Cabeçalho Escuro
     pdf.set_fill_color(20, 20, 20)
     pdf.rect(10, 10, 277, 22, "F")
     
     pdf.set_xy(15, 13)
     pdf.set_font("helvetica", "B", 14)
     pdf.set_text_color(255, 255, 255)
-    pdf.cell(140, 8, "RELATÓRIO DE PREPARAÇÃO PARA ATAQUE", 0, 1, "L")
+    pdf.cell(140, 8, "RELATORIO DE PREPARACAO PARA ATAQUE", 0, 1, "L")
     
     pdf.set_xy(15, 21)
     pdf.set_font("helvetica", "", 10)
     pdf.set_text_color(200, 200, 200)
-    # Aqui é onde a data com os horários (ex: 21/08/2026 (20:00 - 23:15)) entra tinindo!
-    pdf.cell(140, 6, f"Data/Horário: {data_raide} | Raide: {nome_raide}", 0, 1, "L")
+    pdf.cell(140, 6, f"Data/Horario: {data_raide_limpa} | Raide: {nome_raide_limpo}", 0, 1, "L")
     
-    # --- QUADRADOS DE RESUMO (Canto Superior Direito) ---
-    qtd_prep = len(df_resultados[df_resultados['status'] == "PREPARADO"])
-    qtd_atencao = len(df_resultados[df_resultados['status'] == "ATENÇÃO"])
-    qtd_nao = len(df_resultados[df_resultados['status'] == "NÃO PREPARADO"])
+    # Resumo
+    qtd_prep = len(df_resultados[df_resultados['status'].astype(str).str.contains("PREPARADO", na=False) & ~df_resultados['status'].astype(str).str.contains("NÃO|NAO", na=False)])
+    qtd_atencao = len(df_resultados[df_resultados['status'].astype(str).str.contains("ATENÇÃO|ATENCAO", na=False)])
+    qtd_nao = len(df_resultados[df_resultados['status'].astype(str).str.contains("NÃO|NAO", na=False)])
     total = len(df_resultados)
     
     pdf.set_xy(155, 13)
@@ -287,15 +298,14 @@ def gerar_pdf_geral(nome_raide, data_raide, df_resultados):
     pdf.set_fill_color(50, 50, 50)
     pdf.cell(30, 6, "JOGADORES", 1, 0, "C", True)
     pdf.cell(30, 6, "PREPARADOS", 1, 0, "C", True)
-    pdf.cell(30, 6, "ATENÇÃO", 1, 0, "C", True)
-    pdf.cell(35, 6, "NÃO PREPARADOS", 1, 1, "C", True)
+    pdf.cell(30, 6, "ATENCAO", 1, 0, "C", True)
+    pdf.cell(35, 6, "NAO PREPARADOS", 1, 1, "C", True)
     
     pdf.set_xy(155, 19)
     pdf.set_fill_color(255, 255, 255)
     pdf.set_text_color(0, 0, 0)
     pdf.cell(30, 9, str(total), 1, 0, "C", True)
     
-    # Cores clássicas do Excel para os Status
     pdf.set_fill_color(198, 239, 206); pdf.set_text_color(0, 97, 0)
     pdf.cell(30, 9, str(qtd_prep), 1, 0, "C", True)
     
@@ -307,125 +317,104 @@ def gerar_pdf_geral(nome_raide, data_raide, df_resultados):
     
     pdf.ln(8)
     
-    # --- SUPER CABEÇALHO DA TABELA ---
+    # Cabeçalho Tabela
     pdf.set_fill_color(30, 30, 30)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font("helvetica", "B", 9)
     pdf.cell(64, 6, "DADOS DO JOGADOR", 1, 0, "C", True)
-    pdf.cell(72, 6, "ITENS OBRIGATÓRIOS", 1, 0, "C", True)
+    pdf.cell(72, 6, "ITENS OBRIGATORIOS", 1, 0, "C", True)
     pdf.cell(83, 6, "ENCANTAMENTOS AUSENTES", 1, 0, "C", True)
     pdf.cell(26, 6, "PONTOS", 1, 0, "C", True)
     pdf.cell(32, 6, "STATUS", 1, 1, "C", True)
     
-   # --- SUB CABEÇALHO ---
     pdf.set_fill_color(15, 15, 15)
-    pdf.set_font("helvetica", "B", 7) # Fonte reduzida
+    pdf.set_font("helvetica", "B", 7)
     w = [8, 36, 20, 18, 18, 18, 18, 83, 13, 13, 32]
-    h_cols = ["#", "Jogador", "Classe", "Buff", "Frasco", "Comida", "Pres.", "Detalhes", "Total", "%", "Situação"]
+    h_cols = ["#", "Jogador", "Classe", "Buff", "Frasco", "Comida", "Pres.", "Detalhes", "Total", "%", "Situacao"]
     for i in range(len(w)):
         pdf.cell(w[i], 6, h_cols[i], 1, 0, "C", True)
     pdf.ln()
     
-   # --- LINHAS DE DADOS (Zebra List) ---
-    pdf.set_font("helvetica", "", 7) 
-    row_h = 5.3 
+    pdf.set_font("helvetica", "", 7)
+    row_h = 5.3
     
-    # Dicionário tradutor: Converte o emoji salvo na web para texto limpo no PDF
-    MAPA_ENCANTAMENTOS = {
-        "🛡️": "Ombros", "🧥": "Capa", "👕": "Peito", "💪": "Braçadeiras", 
-        "🧤": "Luvas", "👖": "Calças", "👢": "Botas", "⚔️": "Arma Prin.", 
-        "🗡️": "Arma Sec.", "🏹": "Ranged"
+    MAPA_ENC = {
+        "🛡": "Ombros", "🧥": "Capa", "👕": "Peito", "💪": "Bracadeiras",
+        "🧤": "Luvas", "👖": "Calcas", "👢": "Botas", "⚔": "Arma Prin.",
+        "🗡": "Arma Sec.", "🏹": "Ranged"
     }
     
-    def traduzir_ausentes(texto):
-        if not texto or texto == "-": return "-"
-        texto_traduzido = str(texto)
-        # Substitui os emojis pelas palavras reais
-        for emoji, palavra in MAPA_ENCANTAMENTOS.items():
-            texto_traduzido = texto_traduzido.replace(emoji, palavra)
-        
-        # Limpa qualquer outro emoji ou sujeira que sobrar
-        return texto_traduzido.encode('latin-1', 'ignore').decode('latin-1').strip()
-    
-    def limpar_texto_pdf(val): 
-        return str(val).encode('latin-1', 'ignore').decode('latin-1').strip()
-    
     for idx, row in df_resultados.iterrows():
-        st_txt = str(row["status"]).upper()
+        st_raw = sanitizar_texto(row["status"]).upper()
         
-        # --- COR DA LINHA: Fundo vermelho para Não Preparados, Zebra para os demais ---
-        if "NÃO" in st_txt:
-            pdf.set_fill_color(255, 199, 206) # Fundo Vermelho
+        if "NAO" in st_raw or "NÃO" in st_raw:
+            pdf.set_fill_color(255, 199, 206)
         else:
             fill_color = (245, 245, 245) if idx % 2 == 0 else (255, 255, 255)
             pdf.set_fill_color(*fill_color)
             
         pdf.set_text_color(0, 0, 0)
-        
         pdf.cell(w[0], row_h, str(idx+1), 1, 0, "C", True)
         
-        # --- DESTAQUE DE 100% (Substituindo a estrela feia) ---
-        jogador_nome = limpar_texto_pdf(row["jogador"])
-        jogador_nome = jogador_nome.replace("*", "").strip() # Remove se o asterisco vier da web
-        
+        jogador_nome = sanitizar_texto(row["jogador"]).replace("*", "").strip()
         if str(row["porcentagem"]) == "100%":
-            pdf.set_font("helvetica", "B", 7)      # Negrito
-            pdf.set_text_color(0, 100, 0)          # Verde Escuro (Premium)
+            pdf.set_font("helvetica", "B", 7)
+            pdf.set_text_color(0, 100, 0)
         else:
             pdf.set_font("helvetica", "", 7)
             pdf.set_text_color(0, 0, 0)
             
         pdf.cell(w[1], row_h, jogador_nome, 1, 0, "L", True)
         
-        # Volta a fonte ao normal para as próximas colunas
         pdf.set_font("helvetica", "", 7)
         pdf.set_text_color(0, 0, 0)
         
-        # Ícone da Classe
+        # Classe com ícone
         x_classe = pdf.get_x()
         y_classe = pdf.get_y()
-        caminho_icone = garantir_icone_local(limpar_texto_pdf(row["classe"]), "classe")
+        classe_str = sanitizar_texto(row["classe"])
+        caminho_icone = garantir_icone_local(classe_str, "classe")
         if caminho_icone and os.path.exists(caminho_icone):
             try:
                 pdf.image(caminho_icone, x=x_classe + 2, y=y_classe + 0.9, w=3.5, h=3.5)
-            except: pass
-        pdf.cell(w[2], row_h, "      " + limpar_texto_pdf(row["classe"]), 1, 0, "L", True)
+            except Exception:
+                pass
+        pdf.cell(w[2], row_h, "      " + classe_str, 1, 0, "L", True)
         
-        pdf.cell(w[3], row_h, limpar_texto_pdf(row["boss"]), 1, 0, "C", True)
-        pdf.cell(w[4], row_h, limpar_texto_pdf(row["flask"]), 1, 0, "C", True)
-        pdf.cell(w[5], row_h, limpar_texto_pdf(row["comida"]), 1, 0, "C", True)
-        pdf.cell(w[6], row_h, limpar_texto_pdf(row["presenca"]), 1, 0, "C", True)
+        pdf.cell(w[3], row_h, sanitizar_texto(row["boss"]), 1, 0, "C", True)
+        pdf.cell(w[4], row_h, sanitizar_texto(row["flask"]), 1, 0, "C", True)
+        pdf.cell(w[5], row_h, sanitizar_texto(row["comida"]), 1, 0, "C", True)
+        pdf.cell(w[6], row_h, sanitizar_texto(row["presenca"]), 1, 0, "C", True)
         
-        # --- DETALHES DOS ENCANTAMENTOS (Agora com as palavras certas!) ---
-        aus = traduzir_ausentes(row["ausentes"])
-        if aus and aus != "-": 
-            pdf.set_text_color(220, 0, 0) # Pinta as faltas de vermelho
-        pdf.cell(w[7], row_h, aus, 1, 0, "L", True)
+        # Ausências
+        aus_txt = str(row["ausentes"]) if pd.notna(row["ausentes"]) else "-"
+        for k, v in MAPA_ENC.items():
+            aus_txt = aus_txt.replace(k, v)
+        aus_txt = sanitizar_texto(aus_txt)
+        
+        if aus_txt and aus_txt != "-":
+            pdf.set_text_color(220, 0, 0)
+        pdf.cell(w[7], row_h, aus_txt, 1, 0, "L", True)
         pdf.set_text_color(0, 0, 0)
         
-        pdf.cell(w[8], row_h, str(row["pontuacao"]), 1, 0, "C", True)
+        pdf.cell(w[8], row_h, sanitizar_texto(row["pontuacao"]), 1, 0, "C", True)
         
-        # Pinta o "100%" de verde escuro e negrito também para combinar com o nome
         if str(row["porcentagem"]) == "100%":
             pdf.set_font("helvetica", "B", 7)
             pdf.set_text_color(0, 100, 0)
-            
-        pdf.cell(w[9], row_h, limpar_texto_pdf(row["porcentagem"]), 1, 0, "C", True)
-        
-        # Volta a fonte ao normal
+        pdf.cell(w[9], row_h, sanitizar_texto(row["porcentagem"]), 1, 0, "C", True)
         pdf.set_font("helvetica", "", 7)
         pdf.set_text_color(0, 0, 0)
         
-        # Cores exclusivas para o quadradinho do Status Final
-        if "PREPARADO" in st_txt and "NÃO" not in st_txt:
+        if "PREPARADO" in st_raw and "NAO" not in st_raw and "NÃO" not in st_raw:
             pdf.set_fill_color(198, 239, 206); pdf.set_text_color(0, 97, 0)
-        elif "ATENÇÃO" in st_txt:
+        elif "ATENCAO" in st_raw or "ATENÇÃO" in st_raw:
             pdf.set_fill_color(255, 235, 156); pdf.set_text_color(156, 101, 0)
         else:
             pdf.set_fill_color(255, 199, 206); pdf.set_text_color(156, 0, 6)
             
         pdf.set_font("helvetica", "B", 7)
-        pdf.cell(w[10], row_h, st_txt, 1, 1, "C", True)
+        pdf.cell(w[10], row_h, st_raw, 1, 1, "C", True)
         pdf.set_font("helvetica", "", 7)
         
     return pdf_para_bytes(pdf)
@@ -439,7 +428,7 @@ def gerar_pdf_individual(nome_raide, data_raide, row):
     pdf.cell(0, 8, "CORE RENEGADOS - DESEMPENHO INDIVIDUAL", 0, 1, "C")
     pdf.set_font("helvetica", "I", 10)
     pdf.set_text_color(200, 200, 200)
-    pdf.cell(0, 5, f"Raid: {nome_raide} | Data: {data_raide}", 0, 1, "C")
+    pdf.cell(0, 5, sanitizar_texto(f"Raid: {nome_raide} | Data: {data_raide}"), 0, 1, "C")
     pdf.ln(12)
     pdf.set_fill_color(33, 38, 45)
     pdf.set_draw_color(212, 175, 55)
@@ -447,180 +436,24 @@ def gerar_pdf_individual(nome_raide, data_raide, row):
     pdf.set_xy(25, pdf.get_y() + 5)
     pdf.set_font("helvetica", "B", 13)
     pdf.set_text_color(212, 175, 55)
-    pdf.cell(0, 8, f"Jogador: {row['jogador']}", 0, 1, "L")
+    pdf.cell(0, 8, sanitizar_texto(f"Jogador: {row['jogador']}"), 0, 1, "L")
     pdf.set_x(25)
     pdf.set_font("helvetica", "", 11)
     pdf.set_text_color(240, 246, 252)
-    pdf.cell(0, 7, f"Classe: {row['classe']}", 0, 1, "L")
+    pdf.cell(0, 7, sanitizar_texto(f"Classe: {row['classe']}"), 0, 1, "L")
     pdf.set_x(25)
-    pdf.cell(0, 7, f"Pontuacao Final: {row['pontuacao']} pontos", 0, 1, "L")
+    pdf.cell(0, 7, sanitizar_texto(f"Pontuacao Final: {row['pontuacao']} pontos"), 0, 1, "L")
     pdf.set_x(25)
-    pdf.cell(0, 7, f"Aproveitamento Geral: {row['porcentagem']}", 0, 1, "L")
+    pdf.cell(0, 7, sanitizar_texto(f"Aproveitamento Geral: {row['porcentagem']}"), 0, 1, "L")
     pdf.set_x(25)
-    status_txt = str(row["status"])
-    if "PREPARADO" in status_txt and "NÃO" not in status_txt: pdf.set_text_color(86, 211, 100)
-    elif "ATENÇÃO" in status_txt: pdf.set_text_color(227, 179, 65)
-    else: pdf.set_text_color(248, 81, 73)
+    status_txt = sanitizar_texto(str(row["status"]))
+    if "PREPARADO" in status_txt and "NÃO" not in status_txt and "NAO" not in status_txt:
+        pdf.set_text_color(86, 211, 100)
+    elif "ATENÇÃO" in status_txt or "ATENCAO" in status_txt:
+        pdf.set_text_color(227, 179, 65)
+    else:
+        pdf.set_text_color(248, 81, 73)
     pdf.cell(0, 7, f"Status de Preparacao: {status_txt}", 0, 1, "L")
-    return pdf_para_bytes(pdf)
-
-# Classe exclusiva para o PDF de Táticas (Fundo Escuro)
-class PDFTaticas(FPDF):
-    def header(self):
-        self.set_fill_color(70, 70, 70) # Fundo Cinza Escuro igual ao print
-        self.rect(0, 0, 210, 297, "F")
-
-def gerar_pdf_taticas(dados, player_classes):
-    pdf = PDFTaticas()
-    pdf.add_page()
-    
-    pdf.set_y(15)
-    # Título Principal MATA BOSS WIPE TRASH
-    pdf.set_font("helvetica", "B", 18)
-    pdf.set_fill_color(11, 77, 140) # Azul Escuro
-    pdf.set_text_color(255, 255, 255)
-    pdf.cell(0, 12, "MATA BOSS WIPE TRASH", 1, 1, "C", True)
-    pdf.ln(10)
-
-    # Sistema inteligente de Cores das Classes
-    def get_class_color(player_name):
-        if not player_name or player_name not in player_classes:
-            return (255, 255, 255) # Branco padrão
-        c = player_classes[player_name]
-        cores = {
-            "Guerreiro": (198, 155, 109),
-            "Paladino": (244, 140, 186),
-            "Caçador": (171, 212, 115),
-            "Ladino": (255, 244, 104),
-            "Sacerdote": (255, 255, 255),
-            "Mago": (63, 199, 235),
-            "Bruxo": (148, 130, 201),
-            "Xamã": (0, 112, 222),
-            "Druida": (255, 124, 10)
-        }
-        return cores.get(c, (255, 255, 255))
-
-    row_h = 7
-    icon_sz = 6
-    
-    def desenhar_cabecalho(texto, start_x, larg_total):
-        pdf.set_xy(start_x, pdf.get_y())
-        pdf.set_font("helvetica", "B", 12)
-        pdf.set_fill_color(11, 77, 140) # Azul
-        pdf.set_text_color(255, 255, 255)
-        pdf.cell(larg_total, 8, texto, 1, 1, "C", True)
-
-    def desenhar_linha(items, start_x):
-        pdf.set_xy(start_x, pdf.get_y())
-        start_y = pdf.get_y()
-        x_atual = start_x
-        
-        pdf.set_draw_color(0, 0, 0)
-        pdf.set_line_width(0.5)
-        pdf.set_font("helvetica", "B", 10)
-        
-        for (tipo, val, larg, extra) in items:
-            if tipo == "img":
-                pdf.set_fill_color(150, 150, 150) # Fundo dos ícones
-                pdf.rect(x_atual, start_y, larg, row_h, "DF")
-                if val:
-                    caminho = garantir_icone_local(val, "tatica")
-                    if caminho and os.path.exists(caminho):
-                        try:
-                            img_x = x_atual + (larg / 2) - (icon_sz / 2)
-                            img_y = start_y + (row_h / 2) - (icon_sz / 2)
-                            pdf.image(caminho, x=img_x, y=img_y, w=icon_sz, h=icon_sz)
-                        except Exception:
-                            pass
-            elif tipo == "txt":
-                if extra == "player" and val:
-                    r, g, b = get_class_color(val)
-                    pdf.set_fill_color(r, g, b)
-                    pdf.set_text_color(0, 0, 0) # Texto preto para destacar na cor da classe
-                elif extra == "group" and val:
-                    pdf.set_fill_color(200, 200, 200) # Cinza claro para os grupos
-                    pdf.set_text_color(0, 0, 0)
-                else:
-                    pdf.set_fill_color(255, 255, 255)
-                    pdf.set_text_color(0, 0, 0)
-                
-                pdf.set_xy(x_atual, start_y)
-                safe_val = str(val).encode('latin-1', 'replace').decode('latin-1')
-                pdf.cell(larg, row_h, safe_val, 1, 0, "C", True)
-                
-            x_atual += larg
-        pdf.set_xy(start_x, start_y + row_h)
-
-    # 1. BUFFS (Layout Centralizado)
-    linhas_buffs = []
-    for r in range(1, 10):
-        b1 = dados.get(f"b_r{r}_0", "")
-        b2 = dados.get(f"b_r{r}_1", "")
-        grp = dados.get(f"b_r{r}_2", "")
-        p1 = dados.get(f"b_r{r}_3", "")
-        atr = dados.get(f"b_r{r}_4", "")
-        p2 = dados.get(f"b_r{r}_5", "")
-        b3 = dados.get(f"b_r{r}_6", "")
-        if b1 or b2 or grp or p1 or atr or p2 or b3:
-            linhas_buffs.append([
-                ("img", b1, 8, None), ("img", b2, 8, None), ("txt", grp, 16, "group"),
-                ("txt", p1, 45, "player"), ("img", atr, 8, None), ("txt", p2, 45, "player"), ("img", b3, 8, None)
-            ])
-    
-    largura_buffs = 8+8+16+45+8+45+8 # 138mm
-    start_x_buffs = (210 - largura_buffs) / 2
-    
-    if linhas_buffs:
-        desenhar_cabecalho("Buffs and Assignments", start_x_buffs, largura_buffs)
-        for l in linhas_buffs:
-            desenhar_linha(l, start_x_buffs)
-        pdf.ln(8)
-
-    # 2. TANKS
-    linhas_tanks = []
-    for r in range(1, 7):
-        b1 = dados.get(f"t_r{r}_0", "")
-        b2 = dados.get(f"t_r{r}_1", "")
-        p1 = dados.get(f"t_r{r}_2", "")
-        p2 = dados.get(f"t_r{r}_3", "")
-        mald = dados.get(f"t_r{r}_4", "")
-        p3 = dados.get(f"t_r{r}_5", "")
-        b3 = dados.get(f"t_r{r}_6", "")
-        if b1 or b2 or p1 or p2 or mald or p3 or b3:
-            linhas_tanks.append([
-                ("img", b1, 8, None), ("img", b2, 8, None), ("txt", p1, 35, "player"), 
-                ("txt", p2, 35, "player"), ("img", mald, 8, None), ("txt", p3, 35, "player"), ("img", b3, 8, None)
-            ])
-    
-    largura_tanks = 8+8+35+35+8+35+8 # 137mm
-    start_x_tanks = (210 - largura_tanks) / 2
-    
-    if linhas_tanks:
-        desenhar_cabecalho("Tanks, Sheep & Debuffs", start_x_tanks, largura_tanks)
-        for l in linhas_tanks:
-            desenhar_linha(l, start_x_tanks)
-        pdf.ln(8)
-
-    # 3. MD TRASH
-    linhas_md = []
-    for r in range(1, 3):
-        ic = dados.get(f"m_r{r}_0", "")
-        p1 = dados.get(f"m_r{r}_1", "")
-        g1 = dados.get(f"m_r{r}_2", "")
-        g2 = dados.get(f"m_r{r}_3", "")
-        if ic or p1 or g1 or g2:
-            linhas_md.append([
-                ("img", ic, 10, None), ("txt", p1, 40, "player"), ("txt", g1, 40, "group"), ("txt", g2, 40, "group")
-            ])
-            
-    largura_md = 10+40+40+40 # 130mm
-    start_x_md = (210 - largura_md) / 2
-    
-    if linhas_md:
-        desenhar_cabecalho("MD Trash - Boss + Trash", start_x_md, largura_md)
-        for l in linhas_md:
-            desenhar_linha(l, start_x_md)
-
     return pdf_para_bytes(pdf)
 
 # ==========================================
