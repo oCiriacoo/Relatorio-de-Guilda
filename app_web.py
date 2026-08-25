@@ -748,7 +748,10 @@ with tab4:
     st.subheader("📊 Relatórios e Histórico de Raids")
     conn = get_conexao()
     cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT data_registro, nome_raide FROM historico_raides ORDER BY id DESC")
+    
+    # === A CORREÇÃO ENTRA AQUI: A BUSCA ADAPTADA PARA POSTGRESQL ===
+    cursor.execute("SELECT data_registro, nome_raide FROM historico_raides GROUP BY data_registro, nome_raide ORDER BY MAX(id) DESC")
+    
     raides_salvas = cursor.fetchall()
     cursor.close()
     conn.close()
