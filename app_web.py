@@ -298,7 +298,7 @@ def gerar_pdf_geral(nome_raide, data_raide, df_resultados):
     pdf.set_fill_color(15, 15, 15)
     pdf.set_font("helvetica", "B", 7)
     w = [8, 36, 20, 18, 18, 18, 18, 83, 13, 13, 32]
-    h_cols = ["#", "Jogador", "Classe", "Boss", "Frasco", "Comida", "Pres.", "Detalhes", "Total", "%", "Situacao"]
+    h_cols = ["#", "Jogador", "Classe", "Boss", "Frasco", "Comida", "Pres.", "Ausências de Magías", "Total", "%", "Situacao"]
     for i in range(len(w)): pdf.cell(w[i], 6, h_cols[i], 1, 0, "C", True)
     pdf.ln()
     
