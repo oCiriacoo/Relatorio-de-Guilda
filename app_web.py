@@ -162,8 +162,11 @@ def html_classe(nome_classe, tamanho=24):
     return f'<div style="display:flex;align-items:center;gap:8px;height:{tamanho + 4}px;"><img src="{img_src}" width="{tamanho}" height="{tamanho}" style="border-radius:4px;object-fit:cover;flex-shrink:0;" {ref_attr}><span style="color:{cor};font-weight:bold;">{nome_classe}</span></div>'
 
 # ==========================================
-# BANCO DE DADOS SUPABASE (POSTGRESQL)
+# BANCO DE DADOS SUPABASE (POSTGRESQL) - TURBINADO 🚀
 # ==========================================
+
+# 1. A linha mágica que faz o sistema checar/criar tabelas apenas UMA VEZ ao ligar
+@st.cache_resource 
 def conectar_banco():
     conn = get_conexao()
     cursor = conn.cursor()
@@ -191,9 +194,12 @@ def conectar_banco():
         conn.commit()
     cursor.close()
     conn.close()
+    return True
 
 _ = conectar_banco()
 
+# 2. A linha mágica que guarda os jogadores na memória por 15 segundos!
+@st.cache_data(ttl=15) 
 def obter_membros():
     conn = get_conexao()
     df = pd.read_sql("SELECT * FROM membros ORDER BY nome ASC", conn)
