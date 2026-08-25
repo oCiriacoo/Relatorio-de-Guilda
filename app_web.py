@@ -457,6 +457,165 @@ def gerar_pdf_individual(nome_raide, data_raide, row):
     return pdf_para_bytes(pdf)
 
 # ==========================================
+# PDF DE TÁTICAS (CORRIGIDO E BLINDADO)
+# ==========================================
+class PDFTaticas(FPDF):
+    def header(self):
+        self.set_fill_color(70, 70, 70) 
+        self.rect(0, 0, 210, 297, "F")
+
+def gerar_pdf_taticas(dados, player_classes):
+    pdf = PDFTaticas()
+    pdf.add_page()
+    
+    pdf.set_y(15)
+    pdf.set_font("helvetica", "B", 18)
+    pdf.set_fill_color(11, 77, 140) 
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(0, 12, "MATA BOSS WIPE TRASH", 1, 1, "C", True)
+    pdf.ln(10)
+
+    def get_class_color(player_name):
+        if not player_name or player_name not in player_classes:
+            return (255, 255, 255) 
+        c = player_classes[player_name]
+        cores = {
+            "Guerreiro": (198, 155, 109),
+            "Paladino": (244, 140, 186),
+            "Caçador": (171, 212, 115),
+            "Ladino": (255, 244, 104),
+            "Sacerdote": (255, 255, 255),
+            "Mago": (63, 199, 235),
+            "Bruxo": (148, 130, 201),
+            "Xamã": (0, 112, 222),
+            "Druida": (255, 124, 10)
+        }
+        return cores.get(c, (255, 255, 255))
+
+    row_h = 7
+    icon_sz = 6
+    
+    def desenhar_cabecalho(texto, start_x, larg_total):
+        pdf.set_xy(start_x, pdf.get_y())
+        pdf.set_font("helvetica", "B", 12)
+        pdf.set_fill_color(11, 77, 140) 
+        pdf.set_text_color(255, 255, 255)
+        pdf.cell(larg_total, 8, texto, 1, 1, "C", True)
+
+    def desenhar_linha(items, start_x):
+        pdf.set_xy(start_x, pdf.get_y())
+        start_y = pdf.get_y()
+        x_atual = start_x
+        
+        pdf.set_draw_color(0, 0, 0)
+        pdf.set_line_width(0.5)
+        pdf.set_font("helvetica", "B", 10)
+        
+        for (tipo, val, larg, extra) in items:
+            if tipo == "img":
+                pdf.set_fill_color(150, 150, 150) 
+                pdf.rect(x_atual, start_y, larg, row_h, "DF")
+                if val:
+                    caminho = garantir_icone_local(val, "tatica")
+                    if caminho and os.path.exists(caminho):
+                        try:
+                            img_x = x_atual + (larg / 2) - (icon_sz / 2)
+                            img_y = start_y + (row_h / 2) - (icon_sz / 2)
+                            pdf.image(caminho, x=img_x, y=img_y, w=icon_sz, h=icon_sz)
+                        except Exception:
+                            pass
+            elif tipo == "txt":
+                if extra == "player" and val:
+                    r, g, b = get_class_color(val)
+                    pdf.set_fill_color(r, g, b)
+                    pdf.set_text_color(0, 0, 0) 
+                elif extra == "group" and val:
+                    pdf.set_fill_color(200, 200, 200) 
+                    pdf.set_text_color(0, 0, 0)
+                else:
+                    pdf.set_fill_color(255, 255, 255)
+                    pdf.set_text_color(0, 0, 0)
+                
+                pdf.set_xy(x_atual, start_y)
+                safe_val = sanitizar_texto(val) 
+                pdf.cell(larg, row_h, safe_val, 1, 0, "C", True)
+                
+            x_atual += larg
+        pdf.set_xy(start_x, start_y + row_h)
+
+    # 1. BUFFS
+    linhas_buffs = []
+    for r in range(1, 10):
+        b1 = dados.get(f"b_r{r}_0", "")
+        b2 = dados.get(f"b_r{r}_1", "")
+        grp = dados.get(f"b_r{r}_2", "")
+        p1 = dados.get(f"b_r{r}_3", "")
+        atr = dados.get(f"b_r{r}_4", "")
+        p2 = dados.get(f"b_r{r}_5", "")
+        b3 = dados.get(f"b_r{r}_6", "")
+        if b1 or b2 or grp or p1 or atr or p2 or b3:
+            linhas_buffs.append([
+                ("img", b1, 8, None), ("img", b2, 8, None), ("txt", grp, 16, "group"),
+                ("txt", p1, 45, "player"), ("img", atr, 8, None), ("txt", p2, 45, "player"), ("img", b3, 8, None)
+            ])
+    
+    largura_buffs = 8+8+16+45+8+45+8 
+    start_x_buffs = (210 - largura_buffs) / 2
+    
+    if linhas_buffs:
+        desenhar_cabecalho("Buffs and Assignments", start_x_buffs, largura_buffs)
+        for l in linhas_buffs:
+            desenhar_linha(l, start_x_buffs)
+        pdf.ln(8)
+
+    # 2. TANKS
+    linhas_tanks = []
+    for r in range(1, 7):
+        b1 = dados.get(f"t_r{r}_0", "")
+        b2 = dados.get(f"t_r{r}_1", "")
+        p1 = dados.get(f"t_r{r}_2", "")
+        p2 = dados.get(f"t_r{r}_3", "")
+        mald = dados.get(f"t_r{r}_4", "")
+        p3 = dados.get(f"t_r{r}_5", "")
+        b3 = dados.get(f"t_r{r}_6", "")
+        if b1 or b2 or p1 or p2 or mald or p3 or b3:
+            linhas_tanks.append([
+                ("img", b1, 8, None), ("img", b2, 8, None), ("txt", p1, 35, "player"), 
+                ("txt", p2, 35, "player"), ("img", mald, 8, None), ("txt", p3, 35, "player"), ("img", b3, 8, None)
+            ])
+    
+    largura_tanks = 8+8+35+35+8+35+8 
+    start_x_tanks = (210 - largura_tanks) / 2
+    
+    if linhas_tanks:
+        desenhar_cabecalho("Tanks, Sheep & Debuffs", start_x_tanks, largura_tanks)
+        for l in linhas_tanks:
+            desenhar_linha(l, start_x_tanks)
+        pdf.ln(8)
+
+    # 3. MD TRASH
+    linhas_md = []
+    for r in range(1, 3):
+        ic = dados.get(f"m_r{r}_0", "")
+        p1 = dados.get(f"m_r{r}_1", "")
+        g1 = dados.get(f"m_r{r}_2", "")
+        g2 = dados.get(f"m_r{r}_3", "")
+        if ic or p1 or g1 or g2:
+            linhas_md.append([
+                ("img", ic, 10, None), ("txt", p1, 40, "player"), ("txt", g1, 40, "group"), ("txt", g2, 40, "group")
+            ])
+            
+    largura_md = 10+40+40+40 
+    start_x_md = (210 - largura_md) / 2
+    
+    if linhas_md:
+        desenhar_cabecalho("MD Trash - Boss + Trash", start_x_md, largura_md)
+        for l in linhas_md:
+            desenhar_linha(l, start_x_md)
+
+    return pdf_para_bytes(pdf)
+
+# ==========================================
 # CABEÇALHO DA PÁGINA
 # ==========================================
 col_img, col_tit = st.columns([1, 8])
