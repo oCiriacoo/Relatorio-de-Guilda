@@ -15,7 +15,7 @@ _ = pd.set_option('display.max_colwidth', None)
 # ==========================================
 # ⚠️ COLE AQUI O LINK DO SEU SUPABASE ENTRE AS ASPAS:
 # ==========================================
-DB_URL = "postgresql://postgres:[YOUR-PASSWORD]@db.vrsbibaacisypceslzam.supabase.co:5432/postgres"
+DB_URL = DB_URL = "postgresql://postgres.vrsbibaacisypceslzam:Renegados2026@aws-0-sa-east-1.pooler.supabase.com:6543/postgres"
 
 def get_conexao():
     return psycopg2.connect(DB_URL)
