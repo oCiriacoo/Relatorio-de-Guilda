@@ -247,13 +247,15 @@ class PDFCore(FPDF):
         self.cell(0, 10, "Core Renegados - Sistema Oficial de Gestao", 0, 0, "C")
 
 def pdf_para_bytes(pdf):
-    res = pdf.output()
-    if isinstance(res, str):
-        return res.encode('latin1')
-    elif isinstance(res, (bytes, bytearray)):
-        return bytes(res)
-    else:
+    try:
+        out = pdf.output()
+        if isinstance(out, (bytes, bytearray)):
+            return bytes(out)
+        elif isinstance(out, str):
+            return out.encode('latin-1')
         return bytes(pdf.output(dest='S'), 'latin1')
+    except Exception:
+        return bytes(pdf.output())
 
 def gerar_pdf_geral(nome_raide, data_raide, df_resultados):
     pdf = FPDF(orientation="L", unit="mm", format="A4")
@@ -1015,12 +1017,12 @@ with tab3:
                 st.rerun()
 
    # ==========================================
-    # ETAPA 2: PREENCHIMENTO REATIVO (TODOS DESMARCADOS POR PADRÃO)
+    # ETAPA 2: PREENCHIMENTO REATIVO (TODOS MARCADOS POR PADRÃO)
     # ==========================================
     elif st.session_state.etapa_raide == 2:
         boss_total = st.session_state.raide_bosses
         st.markdown(f"### 2️⃣ Preenchimento: {st.session_state.raide_nome} ({st.session_state.raide_data_base}) — Total de Bosses: {boss_total}")
-        st.info("Marque a presença de quem compareceu. Jogadores desmarcados ficam com a linha bloqueada e zerados. 0 encantamentos ausentes = **+5 pontos de Bônus (Total: 45 Pontos)**.")
+        st.info("Todos iniciam como presentes. Desmarque os ausentes para zerar e bloquear a linha. 0 ausências = **+5 pontos de Bônus (Total: 45 Pontos)**.")
         
         st.button("🔙 Voltar para a Seleção de Jogadores", on_click=resetar_raide)
         st.markdown("---")
@@ -1051,10 +1053,9 @@ with tab3:
                 st.markdown(html_info, unsafe_allow_html=True)
                 
             with c2:
-                # value=False define todo mundo desmarcado ao abrir a raide
-                pres = st.checkbox("", value=False, key=f"pres_{jogador}")
+                # Marcado como True por padrão
+                pres = st.checkbox("", value=True, key=f"pres_{jogador}")
                 
-            # Se a presença estiver desmarcada, desativa todos os inputs daquela linha instantaneamente
             is_disabled = not pres
             
             with c3:
@@ -1088,7 +1089,6 @@ with tab3:
             for jogador, dados in resultados_inputs.items():
                 pres_val = 1 if dados["pres"] else 0
                 
-                # Se o jogador ficou desmarcado (ausente), zera tudo
                 if pres_val == 0:
                     total_pontos = 0
                     porcentagem = "0%"
@@ -1103,7 +1103,6 @@ with tab3:
                     comida_val = int(dados["comida"].split("/")[0])
                     qtd_ausentes = len(dados["encants"])
                     
-                    # Cálculo proporcional sobre os 40 pontos base + 5 bônus
                     p_boss = (boss_val / boss_total) * 10
                     p_flask = (flask_val / 10) * 10
                     p_comida = (comida_val / 10) * 10
