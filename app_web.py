@@ -231,22 +231,37 @@ def obter_membros():
 # GERADORES DE PDF CORRIGIDOS (BLINDAGEM CONTRA CORRUPÇÃO)
 # ==========================================
 def sanitizar_texto(texto):
-    if texto is None:
+    if not texto or pd.isna(texto):
         return ""
     txt = str(texto)
-    # Substitui caracteres problemáticos comuns no Windows/Wow
-    txt = txt.replace("’", "'").replace("`", "'").replace("º", "o").replace("ª", "a")
-    return txt.encode("latin-1", "replace").decode("latin-1")
+    # Limpa emojis e caracteres que corrompem o PDF
+    replaces = {
+        "’": "'", "`": "'", "º": "o", "ª": "a",
+        "🛡": "", "🧥": "", "👕": "", "💪": "", "🧤": "", "👖": "", "👢": "", "⚔️": "", "🗡": "", "🏹": "", "⭐": "", "️": ""
+    }
+    for k, v in replaces.items():
+        txt = txt.replace(k, v)
+    # Ignora qualquer outro caractere especial que o PDF não suporte
+    return txt.encode("latin-1", "ignore").decode("latin-1").strip()
 
 def pdf_para_bytes(pdf):
-    # FPDF2 nativo para bytes
+    # Tenta gerar no formato FPDF antigo (legacy)
     try:
-        return bytes(pdf.output())
-    except Exception:
-        out = pdf.output()
-        if isinstance(out, (bytes, bytearray)):
-            return bytes(out)
-        return str(out).encode("latin-1", "replace")
+        saida = pdf.output(dest='S')
+        if isinstance(saida, str):
+            return saida.encode('latin-1', 'ignore')
+        return bytes(saida)
+    except:
+        pass
+    
+    # Tenta gerar no formato FPDF2 novo
+    try:
+        saida = pdf.output()
+        if isinstance(saida, str):
+            return saida.encode('latin-1', 'ignore')
+        return bytes(saida)
+    except:
+        return b""
 
 class PDFCore(FPDF):
     def header(self):
@@ -1243,13 +1258,16 @@ with tab4:
        # --- 3. BARRA DE COMANDOS NA PARTE INFERIOR ---
         c_btn1, c_sel, c_btn2 = st.columns([1, 1, 1])
         
+        # Limpa o nome do arquivo para não corromper o download no navegador (ex: remove apóstrofos e º)
+        nome_arquivo_seguro = "".join(c for c in nome_sel if c.isalnum() or c in " _-").replace(" ", "_")
+        
         with c_btn1:
             st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
             pdf_geral_bytes = gerar_pdf_geral(nome_sel, data_sel, df)
             st.download_button(
                 "📥 Baixar Relatório Geral (Dashboard PDF)", 
                 data=pdf_geral_bytes, 
-                file_name=f"Relatorio_{nome_sel.replace(' ', '_')}.pdf", 
+                file_name=f"Relatorio_{nome_arquivo_seguro}.pdf", 
                 mime="application/pdf", 
                 use_container_width=True
             )
@@ -1264,10 +1282,14 @@ with tab4:
                 st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
                 linha_jogador = df[df["jogador"] == jogador_escolhido].iloc[0]
                 pdf_indiv_bytes = gerar_pdf_individual(nome_sel, data_sel, linha_jogador)
+                
+                # Mesma proteção para o nome do jogador
+                jogador_arquivo_seguro = "".join(c for c in jogador_escolhido if c.isalnum() or c in " _-").replace(" ", "_")
+                
                 st.download_button(
                     f"📥 Baixar PDF Individual ({jogador_escolhido})", 
                     data=pdf_indiv_bytes, 
-                    file_name=f"Desempenho_{jogador_escolhido}.pdf", 
+                    file_name=f"Desempenho_{jogador_arquivo_seguro}.pdf", 
                     mime="application/pdf", 
                     use_container_width=True
                 )
