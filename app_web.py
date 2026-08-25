@@ -1248,23 +1248,37 @@ with tab4:
         
         st.markdown("---")
         
-        # --- 3. BARRA DE COMANDOS NA PARTE INFERIOR ---
+       # --- 3. BARRA DE COMANDOS NA PARTE INFERIOR ---
         c_btn1, c_sel, c_btn2 = st.columns([1, 1, 1])
         
         with c_btn1:
             st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
-            st.download_button("📥 Baixar Relatório Geral (Dashboard PDF)", data=gerar_pdf_geral(nome_sel, data_sel, df), file_name=f"Relatorio_{nome_sel.replace(' ', '_')}.pdf", mime="application/pdf", use_container_width=True)
+            pdf_geral_bytes = gerar_pdf_geral(nome_sel, data_sel, df)
+            st.download_button(
+                "📥 Baixar Relatório Geral (Dashboard PDF)", 
+                data=pdf_geral_bytes, 
+                file_name=f"Relatorio_{nome_sel.replace(' ', '_')}.pdf", 
+                mime="application/pdf", 
+                use_container_width=True
+            )
             
         jogadores_lista = df["jogador"].tolist()
         
         with c_sel:
-            if jogadores_lista:
-                jogador_escolhido = st.selectbox("Selecionar Jogador (Para PDF Individual)", jogadores_lista)
+            jogador_escolhido = st.selectbox("Selecionar Jogador (Para PDF Individual)", jogadores_lista) if jogadores_lista else None
                 
         with c_btn2:
-            if jogadores_lista:
+            if jogador_escolhido:
                 st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
-                st.download_button(f"📥 Baixar PDF Individual ({jogador_escolhido})", data=gerar_pdf_individual(nome_sel, data_sel, df[df["jogador"] == jogador_escolhido].iloc[0]), file_name=f"Desempenho_{jogador_escolhido}.pdf", mime="application/pdf", use_container_width=True)
+                linha_jogador = df[df["jogador"] == jogador_escolhido].iloc[0]
+                pdf_indiv_bytes = gerar_pdf_individual(nome_sel, data_sel, linha_jogador)
+                st.download_button(
+                    f"📥 Baixar PDF Individual ({jogador_escolhido})", 
+                    data=pdf_indiv_bytes, 
+                    file_name=f"Desempenho_{jogador_escolhido}.pdf", 
+                    mime="application/pdf", 
+                    use_container_width=True
+                )
 # ==========================================
 # FUNÇÃO DINÂMICA DAS TÁTICAS 
 # ==========================================
