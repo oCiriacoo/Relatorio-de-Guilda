@@ -721,13 +721,13 @@ with tab3:
                 st.markdown("</div>", unsafe_allow_html=True)
             
         st.markdown("---")
-        if st.button("💾 Encerrar Raid e Salvar Relatório", type="primary", use_container_width=True):
+       if st.button("💾 Encerrar Raid e Salvar Relatório", type="primary", use_container_width=True):
             hora_fim_automatica = datetime.now().strftime('%H:%M')
             data_final_completa = f"{st.session_state.raide_data_base} ({st.session_state.raide_hora_inicio} - {hora_fim_automatica})"
             conn = get_conexao()
             cursor = conn.cursor()
             
-           for jogador, dados in resultados_inputs.items():
+            for jogador, dados in resultados_inputs.items():
                 pres_val = 1 if dados["pres"] else 0
                 if pres_val == 0:
                     total_pontos, porcentagem, status = 0, "0%", "NÃO PREPARADO"
