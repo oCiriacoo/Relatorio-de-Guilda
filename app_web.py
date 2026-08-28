@@ -721,7 +721,7 @@ with tab3:
                 st.markdown("</div>", unsafe_allow_html=True)
             
         st.markdown("---")
-       if st.button("💾 Encerrar Raid e Salvar Relatório", type="primary", use_container_width=True):
+        if st.button("💾 Encerrar Raid e Salvar Relatório", type="primary", use_container_width=True):
             hora_fim_automatica = datetime.now().strftime('%H:%M')
             data_final_completa = f"{st.session_state.raide_data_base} ({st.session_state.raide_hora_inicio} - {hora_fim_automatica})"
             conn = get_conexao()
