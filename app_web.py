@@ -298,57 +298,72 @@ def gerar_pdf_geral(nome_raide, data_raide, df_resultados):
     pdf.set_fill_color(15, 15, 15)
     pdf.set_font("helvetica", "B", 7)
     w = [8, 36, 20, 18, 18, 18, 18, 83, 13, 13, 32]
-    h_cols = ["#", "Jogador", "Classe", "Boss", "Frasco", "Comida", "Pres.", "Itens Ausentes", "Total", "%", "Situacao"]
+    h_cols = ["#", "Jogador", "Classe", "Buff", "Frasco", "Comida", "Pres.", "Detalhes", "Total", "%", "Situacao"]
     for i in range(len(w)): pdf.cell(w[i], 6, h_cols[i], 1, 0, "C", True)
     pdf.ln()
     
-    pdf.set_font("helvetica", "", 7)
-    row_h = 5.3
-    MAPA_ENC = {"🛡": "Ombros", "🧥": "Capa", "👕": "Peito", "💪": "Bracadeiras", "🧤": "Luvas", "👖": "Calcas", "👢": "Botas", "⚔": "Arma Prin.", "🗡": "Arma Sec.", "🏹": "Ranged"}
-    
     for idx, row in df_resultados.iterrows():
         st_raw = sanitizar_texto(row["status"]).upper()
-        if "NAO" in st_raw or "NÃO" in st_raw: pdf.set_fill_color(255, 199, 206)
-        else: pdf.set_fill_color(*(245, 245, 245) if idx % 2 == 0 else (255, 255, 255))
+        
+        # Cores da Linha (100% Verde, 0% Vermelho)
+        if str(row["porcentagem"]) == "100%": fill_color = (198, 239, 206)
+        elif str(row["porcentagem"]) == "0%": fill_color = (255, 199, 206)
+        else: fill_color = (245, 245, 245) if idx % 2 == 0 else (255, 255, 255)
             
+        pdf.set_fill_color(*fill_color)
         pdf.set_text_color(0, 0, 0)
-        pdf.cell(w[0], row_h, str(idx+1), 1, 0, "C", True)
+        
+        # Quebra de Linha Inteligente (Sem duplicar palavras)
+        aus_txt = str(row["ausentes"]) if pd.notna(row["ausentes"]) and str(row["ausentes"]) != "" else "-"
+        aus_txt = sanitizar_texto(aus_txt).strip()
+        
+        if len(aus_txt) > 55:
+            line_h = 3.5
+            current_row_h = 7.0
+        else:
+            line_h = 6.0
+            current_row_h = 6.0
+            
+        pdf.cell(w[0], current_row_h, str(idx+1), 1, 0, "C", True)
+        
         jogador_nome = sanitizar_texto(row["jogador"]).replace("*", "").strip()
         if str(row["porcentagem"]) == "100%": pdf.set_font("helvetica", "B", 7); pdf.set_text_color(0, 100, 0)
         else: pdf.set_font("helvetica", "", 7); pdf.set_text_color(0, 0, 0)
-        pdf.cell(w[1], row_h, jogador_nome, 1, 0, "L", True)
+        pdf.cell(w[1], current_row_h, jogador_nome, 1, 0, "L", True)
         
         pdf.set_font("helvetica", "", 7); pdf.set_text_color(0, 0, 0)
         x_classe, y_classe = pdf.get_x(), pdf.get_y()
         classe_str = sanitizar_texto(row["classe"])
         caminho_icone = garantir_icone_local(classe_str, "classe")
         if caminho_icone and os.path.exists(caminho_icone):
-            try: pdf.image(caminho_icone, x=x_classe + 2, y=y_classe + 0.9, w=3.5, h=3.5)
+            try: pdf.image(caminho_icone, x=x_classe + 2, y=y_classe + (current_row_h/2) - 1.75, w=3.5, h=3.5)
             except Exception: pass
-        pdf.cell(w[2], row_h, "      " + classe_str, 1, 0, "L", True)
-        pdf.cell(w[3], row_h, sanitizar_texto(row["boss"]), 1, 0, "C", True)
-        pdf.cell(w[4], row_h, sanitizar_texto(row["flask"]), 1, 0, "C", True)
-        pdf.cell(w[5], row_h, sanitizar_texto(row["comida"]), 1, 0, "C", True)
-        pdf.cell(w[6], row_h, sanitizar_texto(row["presenca"]), 1, 0, "C", True)
+        pdf.cell(w[2], current_row_h, "      " + classe_str, 1, 0, "L", True)
+        pdf.cell(w[3], current_row_h, sanitizar_texto(row["boss"]), 1, 0, "C", True)
+        pdf.cell(w[4], current_row_h, sanitizar_texto(row["flask"]), 1, 0, "C", True)
+        pdf.cell(w[5], current_row_h, sanitizar_texto(row["comida"]), 1, 0, "C", True)
+        pdf.cell(w[6], current_row_h, sanitizar_texto(row["presenca"]), 1, 0, "C", True)
         
-        aus_txt = str(row["ausentes"]) if pd.notna(row["ausentes"]) else "-"
-        for k, v in MAPA_ENC.items(): aus_txt = aus_txt.replace(k, v)
-        aus_txt = sanitizar_texto(aus_txt)
+        # A Mágica de escrever os encantamentos adaptáveis
+        x_aus, y_aus = pdf.get_x(), pdf.get_y()
         if aus_txt and aus_txt != "-": pdf.set_text_color(220, 0, 0)
-        pdf.cell(w[7], row_h, aus_txt, 1, 0, "L", True)
+        pdf.multi_cell(w[7], line_h, aus_txt, 1, "L", True)
         pdf.set_text_color(0, 0, 0)
-        pdf.cell(w[8], row_h, sanitizar_texto(row["pontuacao"]), 1, 0, "C", True)
+        pdf.set_xy(x_aus + w[7], y_aus)
+        
+        pdf.cell(w[8], current_row_h, sanitizar_texto(row["pontuacao"]), 1, 0, "C", True)
         
         if str(row["porcentagem"]) == "100%": pdf.set_font("helvetica", "B", 7); pdf.set_text_color(0, 100, 0)
-        pdf.cell(w[9], row_h, sanitizar_texto(row["porcentagem"]), 1, 0, "C", True)
+        pdf.cell(w[9], current_row_h, sanitizar_texto(row["porcentagem"]), 1, 0, "C", True)
         pdf.set_font("helvetica", "", 7); pdf.set_text_color(0, 0, 0)
         
         if "PREPARADO" in st_raw and "NAO" not in st_raw and "NÃO" not in st_raw: pdf.set_fill_color(198, 239, 206); pdf.set_text_color(0, 97, 0)
         elif "ATENCAO" in st_raw or "ATENÇÃO" in st_raw: pdf.set_fill_color(255, 235, 156); pdf.set_text_color(156, 101, 0)
         else: pdf.set_fill_color(255, 199, 206); pdf.set_text_color(156, 0, 6)
         pdf.set_font("helvetica", "B", 7)
-        pdf.cell(w[10], row_h, st_raw, 1, 1, "C", True)
+        pdf.cell(w[10], current_row_h, st_raw, 1, 1, "C", True)
         pdf.set_font("helvetica", "", 7)
+        
     return pdf_para_bytes(pdf)
 
 def gerar_pdf_individual(nome_raide, data_raide, row):
@@ -815,7 +830,13 @@ with tab4:
                 "Média": row["porcentagem"], "Status": status_html
             })
             
-        def destacar_nao_preparados(row): return ['background-color: rgba(244, 67, 54, 0.15); border-bottom: 1px solid #F44336;'] * len(row) if '🔴' in str(row['Status']) else [''] * len(row)
+       # Pintar a linha inteira de Verde (100%) ou Vermelho (0% - Zerado)
+        def destacar_nao_preparados(row): 
+            if str(row['Média']) == '0%':
+                return ['background-color: rgba(244, 67, 54, 0.15); border-bottom: 1px solid #F44336;'] * len(row)
+            elif str(row['Média']) == '100%':
+                return ['background-color: rgba(76, 175, 80, 0.15); border-bottom: 1px solid #4CAF50;'] * len(row)
+            return [''] * len(row)
             
         tabela_html = pd.DataFrame(relatorio_formatado).style.apply(destacar_nao_preparados, axis=1).hide(axis="index").to_html(escape=False).replace('<table', '<table style="width: 100%; text-align: left; border-collapse: collapse;"')
         st.markdown(tabela_html, unsafe_allow_html=True)
