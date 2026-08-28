@@ -723,8 +723,13 @@ with tab3:
                     comida_val = int(dados["comida"].split("/")[0])
                     qtd_ausentes = len(dados["encants"])
                     
-                    total_pontos = round(((boss_val/boss_total)*10) + ((flask_val/10)*10) + ((comida_val/10)*10) + max(0, 10-(qtd_ausentes*2)))
-                    if qtd_ausentes == 0: total_pontos += 5 
+                    # NOVA MATEMÁTICA: Se faltar 1 encante, ZERA a nota de encantamento (0). Se tiver tudo, ganha 15!
+                    p_boss = (boss_val / boss_total) * 10
+                    p_flask = (flask_val / 10) * 10
+                    p_comida = (comida_val / 10) * 10
+                    p_encant = 15 if qtd_ausentes == 0 else 0
+                    
+                    total_pontos = round(p_boss + p_flask + p_comida + p_encant)
                     
                     pct = (total_pontos / 45) * 100
                     porcentagem = f"{int(pct)}%"
